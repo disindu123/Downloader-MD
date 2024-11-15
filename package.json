@@ -1,0 +1,26 @@
+{
+  "name": "Downloader-MD",
+  "version": "1.0.0",
+  "description": "A WhatsApp bot for downloading media, converting images to stickers, and more.",
+  "main": "index.js",
+  "scripts": {
+    "start": "pm2 start index.js --deep-monitoring --attach --name Downloader-MD",
+    "stop": "pm2 stop Downloader-MD",
+    "restart": "pm2 restart Downloader-MD"
+  },
+  "author": "Cyber-DissA",
+  "license": "MIT",
+  "dependencies": {
+    "@adiwajshing/baileys": "^5.0.0",
+    "child_process": "^1.0.2",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7",
+    "youtube-dl": "^0.4.4",
+    "yt-dlp": "^2024.05.01",
+    "ffmpeg-static": "^4.3.0"
+    "yt-search": "^2.11.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
