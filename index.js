@@ -47,22 +47,35 @@ async function startBot() {
 │◦ 💫ᴘʀᴇғɪx : *[.]*
 ╰──────────────────━┈⊷
 
-➤❮ *All Commands* ❯
+➤❮ *`ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs`* ❯
 
-1. .ping - Check if the bot is online.
-2. .alive - Check if the bot is alive.
-3. .song <song_name> - Download a song.
-4. .video <video_url> - Download a video.
-5. .facebook <url> - Download a Facebook video.
-6. .tiktok <url> - Download a TikTok video.
-7. .instagram <url> - Download an Instagram video.
-8. .ytdl <YouTube_url> - Download a YouTube video.
-9. .spotify <song_name> - Search and download a Spotify song.
-10. .apk <apk_name> - Download an APK.
-11. .sticker - Convert an image to a sticker.
-12. .movie <movie_name> - Download a movie.
-13. .runtime - Get the bot's runtime.
-14. .uptime - Get the bot's uptime.
+1. .ᴘɪɴɢ - _Check if the bot is online._
+
+2. .ᴀʟɪᴠᴇ - _Check if the bot is alive._
+
+3. .sᴏɴɢ <song name or url> - _Download a song._
+
+4. .ᴠɪᴅᴇᴏ <video url> - _Download a video._
+
+5. .ғᴀᴄᴇʙᴏᴏᴋ <url> - _Download a Facebook video._
+
+6. .ᴛɪᴋᴛᴏᴋ <url> - _Download a TikTok video._
+
+7. .ɪɴsᴛᴀɢʀᴀᴍ <url> - _Download an Instagram video._
+
+8. .ʏᴛᴅʟ <YouTube url> - _Download a YouTube video._
+
+9. .sᴘᴏᴛɪғʏ <song name> - _Search and download a Spotify song._
+
+10. .ᴀᴘᴋ <apk name> - _Download an APK._
+
+11. .sᴛɪᴄᴋᴇʀ - _Convert an image to a sticker._
+
+12. .ᴍᴏᴠɪᴇ <movie name> - _Download a movie._
+
+13. .ʀᴜɴᴛɪᴍᴇ - _Get the bot's runtime._
+
+14. .ᴜᴘᴛɪᴍᴇ - _Get the bot's uptime._
             `;
             await sock.sendMessage(sender, { text: menuMessage });
         } else if (text.startsWith('.song')) {
@@ -128,7 +141,7 @@ async function startBot() {
                 startBot(); // Reconnect automatically if not logged out
             }
         } else if (connection === 'open') {
-            console.log('Bot is online!');
+            console.log('Hey,Bot is online!');
         }
     });
 }
