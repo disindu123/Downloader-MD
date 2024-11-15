@@ -2,17 +2,11 @@ const { default: makeWASocket, DisconnectReason, useSingleFileAuthState } = requ
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-const moment = require('moment');
-const ytDl = require('yt-dlp');
 
-// Save authentication state
+// Save authentication state in a local file
 const { state, saveState } = useSingleFileAuthState('./auth_info.json');
 
-// Global variables for uptime and runtime tracking
-let botStartTime = moment();
-
-// Start the bot
+// Start the WhatsApp bot
 async function startBot() {
     const sock = makeWASocket({
         auth: state,
@@ -22,7 +16,7 @@ async function startBot() {
     // Save updated credentials
     sock.ev.on('creds.update', saveState);
 
-    // Handle incoming messages
+    // Message handler
     sock.ev.on('messages.upsert', async (msg) => {
         const message = msg.messages[0];
         if (!message.message) return;
@@ -34,72 +28,89 @@ async function startBot() {
 
         console.log(`Received message: ${text} from ${sender}`);
 
-        // Commands
+        // Main commands
         if (text === '!ping') {
             await sock.sendMessage(sender, { text: 'Pong! 🏓' });
         } else if (text === '!alive') {
-            await sock.sendMessage(sender, { text: '✅ Bot is alive and running!' });
-        } else if (text === '!uptime') {
-            const uptime = moment.duration(moment().diff(botStartTime)).humanize();
-            await sock.sendMessage(sender, { text: `Uptime: ${uptime}` });
-        } else if (text === '!runtime') {
-            const runtime = process.uptime();
-            await sock.sendMessage(sender, { text: `Runtime: ${runtime.toFixed(2)} seconds` });
+            await sock.sendMessage(sender, { text: 'I am alive and running! 💥' });
         } else if (text === '!menu') {
-            const menuText = `
+            const menuMessage = `
 *Available Commands:*
-1. *!ping* - Check if the bot is online.
-2. *!alive* - Check if the bot is running.
-3. *!uptime* - Check bot's uptime.
-4. *!runtime* - Check bot's runtime.
+1. *!ping* - Check if the bot is alive.
+2. *!alive* - Check bot's current status.
+3. *!runtime* - Get bot runtime details.
+4. *!sticker* - Convert an image to a sticker (send with caption "!sticker").
 5. *!ytdl <YouTube_URL>* - Download a YouTube video.
-6. *!song <Song Name>* - Search and download a song.
-7. *!video <Video URL>* - Download a video (YouTube, Facebook, etc).
-8. *!facebook <Facebook URL>* - Download a Facebook video.
-9. *!instagram <Instagram URL>* - Download an Instagram video.
-10. *!tiktok <TikTok URL>* - Download a TikTok video.
-11. *!spotify <Song URL>* - Download a song from Spotify.
-12. *!apk <App Name>* - Search and download an APK file.
-13. *!movie <Movie Name>* - Search and download a movie.
+6. *!fbdl <Facebook_URL>* - Download a Facebook video.
+7. *!tiktokdl <TikTok_URL>* - Download a TikTok video.
+8. *!instadl <Instagram_URL>* - Download an Instagram video.
+9. *!song <Song_Name>* - Search for a song.
+10. *!video <Video_Name>* - Search for a video.
+11. *!apk <APK_Name>* - Download an APK file.
+12. *!movie <Movie_Name>* - Search for a movie.
+13. *!spotify <Song_Name>* - Get details for a song on Spotify.
             `;
-            await sock.sendMessage(sender, { text: menuText });
-        } else if (text.startsWith('!song')) {
-            await handleSongDownload(sock, sender, text);
-        } else if (text.startsWith('!video')) {
-            await handleVideoDownload(sock, sender, text);
+            await sock.sendMessage(sender, { text: menuMessage });
+        } else if (text === '!runtime') {
+            const uptime = process.uptime();
+            await sock.sendMessage(sender, { text: `Bot has been running for ${Math.floor(uptime / 60)} minutes and ${Math.floor(uptime % 60)} seconds.` });
+        } else if (text.startsWith('!sticker')) {
+            await convertToSticker(sock, sender, message);
         } else if (text.startsWith('!ytdl')) {
             await handleYouTubeDownload(sock, sender, text);
-        } else if (text.startsWith('!facebook')) {
+        } else if (text.startsWith('!fbdl')) {
             await handleFacebookDownload(sock, sender, text);
-        } else if (text.startsWith('!instagram')) {
-            await handleInstagramDownload(sock, sender, text);
-        } else if (text.startsWith('!tiktok')) {
+        } else if (text.startsWith('!tiktokdl')) {
             await handleTikTokDownload(sock, sender, text);
-        } else if (text.startsWith('!spotify')) {
-            await handleSpotifyDownload(sock, sender, text);
+        } else if (text.startsWith('!instadl')) {
+            await handleInstagramDownload(sock, sender, text);
+        } else if (text.startsWith('!song')) {
+            await searchSong(sock, sender, text);
+        } else if (text.startsWith('!video')) {
+            await searchVideo(sock, sender, text);
         } else if (text.startsWith('!apk')) {
             await handleApkDownload(sock, sender, text);
         } else if (text.startsWith('!movie')) {
-            await handleMovieDownload(sock, sender, text);
+            await searchMovie(sock, sender, text);
+        } else if (text.startsWith('!spotify')) {
+            await searchSpotify(sock, sender, text);
         }
     });
 
-    // Handle connection updates
+    // Connection updates
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode || 'Unknown';
             console.log(`Connection closed. Reason: ${reason}`);
             if (reason !== DisconnectReason.loggedOut) {
-                startBot(); // Reconnect automatically
+                startBot(); // Reconnect
             }
         } else if (connection === 'open') {
-            console.log('Bot is online and ready to receive messages!');
+            console.log('Bot is online and ready!');
         }
     });
 }
 
-// Helper function to download YouTube video
+// Convert image to sticker
+async function convertToSticker(sock, sender, message) {
+    const media = await sock.downloadMediaMessage(message);
+    const stickerPath = './sticker.webp';
+    const inputImagePath = './input_image.jpg';
+
+    fs.writeFileSync(inputImagePath, media);
+    exec(`ffmpeg -i ${inputImagePath} -vf "scale=512:512:force_original_aspect_ratio=decrease" ${stickerPath}`, async (error) => {
+        if (error) {
+            await sock.sendMessage(sender, { text: '❌ Failed to create sticker. Ensure ffmpeg is installed.' });
+            return;
+        }
+        await sock.sendMessage(sender, { sticker: { url: stickerPath } });
+        fs.unlinkSync(inputImagePath); // Cleanup
+        fs.unlinkSync(stickerPath);
+    });
+}
+
+// YouTube download handler (Placeholder)
 async function handleYouTubeDownload(sock, sender, text) {
     const url = text.split(' ')[1];
     if (!url) {
@@ -107,64 +118,105 @@ async function handleYouTubeDownload(sock, sender, text) {
         return;
     }
 
-    const outputDir = './downloads';
-    const outputFilePath = path.join(outputDir, 'video.mp4');
-
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    await sock.sendMessage(sender, { text: '⏳ Downloading YouTube video, please wait...' });
-
-    exec(`yt-dlp -f 'best[ext=mp4]' -o "${outputFilePath}" "${url}"`, async (error, stdout, stderr) => {
-        if (error) {
-            await sock.sendMessage(sender, { text: `❌ Error downloading video: ${stderr || error.message}` });
-            return;
-        }
-
-        await sock.sendMessage(sender, {
-            video: { url: outputFilePath },
-            caption: '🎥 Here is your downloaded video!',
-        });
-
-        fs.unlinkSync(outputFilePath); // Clean up after sending
-    });
+    await sock.sendMessage(sender, { text: `⏳ Downloading YouTube video: ${url}...` });
+    // Actual download logic should be here using yt-dlp or a similar tool
 }
 
-// Helper function to download a song
-async function handleSongDownload(sock, sender, text) {
-    const songName = text.split(' ').slice(1).join(' ');
-    if (!songName) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a song name.' });
+// Facebook download handler (Placeholder)
+async function handleFacebookDownload(sock, sender, text) {
+    const url = text.split(' ')[1];
+    if (!url) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a valid Facebook video URL.' });
         return;
     }
 
-    const outputDir = './downloads';
-    const outputFilePath = path.join(outputDir, 'song.mp3');
-
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    await sock.sendMessage(sender, { text: '⏳ Searching for song, please wait...' });
-
-    // You can use an API like `yt-dlp` or others for music downloads (just an example here)
-    exec(`yt-dlp -x --audio-format mp3 -o "${outputFilePath}" "ytsearch:${songName}"`, async (error, stdout, stderr) => {
-        if (error) {
-            await sock.sendMessage(sender, { text: `❌ Error downloading song: ${stderr || error.message}` });
-            return;
-        }
-
-        await sock.sendMessage(sender, {
-            audio: { url: outputFilePath },
-            caption: `🎵 Here is your song: ${songName}`,
-        });
-
-        fs.unlinkSync(outputFilePath); // Clean up after sending
-    });
+    await sock.sendMessage(sender, { text: `⏳ Downloading Facebook video: ${url}...` });
+    // Actual download logic should be here
 }
 
-// Additional handlers for video, Facebook, Instagram, TikTok, Spotify, APK, etc., would be similar
+// TikTok download handler (Placeholder)
+async function handleTikTokDownload(sock, sender, text) {
+    const url = text.split(' ')[1];
+    if (!url) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a valid TikTok URL.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `⏳ Downloading TikTok video: ${url}...` });
+    // Actual download logic should be here
+}
+
+// Instagram download handler (Placeholder)
+async function handleInstagramDownload(sock, sender, text) {
+    const url = text.split(' ')[1];
+    if (!url) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a valid Instagram URL.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `⏳ Downloading Instagram video: ${url}...` });
+    // Actual download logic should be here
+}
+
+// Song search handler (Placeholder)
+async function searchSong(sock, sender, text) {
+    const song = text.split(' ').slice(1).join(' ');
+    if (!song) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a song name to search.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `🔍 Searching for song: ${song}...` });
+    // Implement song search logic using APIs or external libraries
+}
+
+// Video search handler (Placeholder)
+async function searchVideo(sock, sender, text) {
+    const video = text.split(' ').slice(1).join(' ');
+    if (!video) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a video name to search.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `🔍 Searching for video: ${video}...` });
+    // Implement video search logic using APIs or external libraries
+}
+
+// APK download handler (Placeholder)
+async function handleApkDownload(sock, sender, text) {
+    const apkName = text.split(' ')[1];
+    if (!apkName) {
+        await sock.sendMessage(sender, { text: '❌ Please provide the APK name.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `📥 Downloading APK: ${apkName}...` });
+    // Implement APK download logic
+}
+
+// Movie search handler (Placeholder)
+async function searchMovie(sock, sender, text) {
+    const movie = text.split(' ').slice(1).join(' ');
+    if (!movie) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a movie name to search.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `🔍 Searching for movie: ${movie}...` });
+    // Implement movie search logic
+}
+
+// Spotify search handler (Placeholder)
+async function searchSpotify(sock, sender, text) {
+    const song = text.split(' ').slice(1).join(' ');
+    if (!song) {
+        await sock.sendMessage(sender, { text: '❌ Please provide a song name to search on Spotify.' });
+        return;
+    }
+
+    await sock.sendMessage(sender, { text: `🔍 Searching Spotify for song: ${song}...` });
+    // Implement Spotify search logic
+}
 
 // Start the bot
 startBot();
