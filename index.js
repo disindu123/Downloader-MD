@@ -3,20 +3,22 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// Save authentication state in a local file
+// Save authentication state to a file
 const { state, saveState } = useSingleFileAuthState('./auth_info.json');
 
-// Start the WhatsApp bot
+// Get the current time and uptime of the bot
+const startTime = Date.now();
+
 async function startBot() {
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: true,
     });
 
-    // Save updated credentials
+    // Save authentication state whenever it changes
     sock.ev.on('creds.update', saveState);
 
-    // Message handler
+    // Handle incoming messages
     sock.ev.on('messages.upsert', async (msg) => {
         const message = msg.messages[0];
         if (!message.message) return;
@@ -28,52 +30,91 @@ async function startBot() {
 
         console.log(`Received message: ${text} from ${sender}`);
 
-        // Main commands
-        if (text === '!ping') {
+        // Command handling
+        if (text.startsWith('.ping')) {
             await sock.sendMessage(sender, { text: 'Pong! 🏓' });
-        } else if (text === '!alive') {
-            await sock.sendMessage(sender, { text: 'I am alive and running! 💥' });
-        } else if (text === '!menu') {
+        } else if (text.startsWith('.alive')) {
+            await sock.sendMessage(sender, { text: '✅ Hey,The bot is alive and running! 🫡' });
+        } else if (text.startsWith('.menu')) {
             const menuMessage = `
-*Available Commands:*
-1. *!ping* - Check if the bot is alive.
-2. *!alive* - Check bot's current status.
-3. *!runtime* - Get bot runtime details.
-4. *!sticker* - Convert an image to a sticker (send with caption "!sticker").
-5. *!ytdl <YouTube_URL>* - Download a YouTube video.
-6. *!fbdl <Facebook_URL>* - Download a Facebook video.
-7. *!tiktokdl <TikTok_URL>* - Download a TikTok video.
-8. *!instadl <Instagram_URL>* - Download an Instagram video.
-9. *!song <Song_Name>* - Search for a song.
-10. *!video <Video_Name>* - Search for a video.
-11. *!apk <APK_Name>* - Download an APK file.
-12. *!movie <Movie_Name>* - Search for a movie.
-13. *!spotify <Song_Name>* - Get details for a song on Spotify.
+╭──────────────────━┈⊷
+│◦ 🤖ʙᴏᴛ ɴᴀᴍᴇ : *DOWNLOADER-MD*
+│◦ 👤ᴏᴡɴᴇʀ ɴᴀᴍᴇ : *Cyber DissA*
+│◦ ☎ᴏᴡɴᴇʀ ɴᴜᴍ : *+94775704025*
+│◦ ⏰ᴜᴘᴛɪᴍᴇ : *0ᴅᴀʏ 0ʜʀs 3ᴍɪɴs*
+│◦ 💾ʀᴀᴍ : *857.19 MB / 3.7 GB*
+│◦ 🛡ᴘʟᴀᴛғᴏʀᴍ : *Unkown*
+│◦ 💫ᴘʀᴇғɪx : *[.]*
+╰──────────────────━┈⊷
+
+➤❮ *All Commands* ❯
+
+1. .ping - Check if the bot is online.
+2. .alive - Check if the bot is alive.
+3. .song <song_name> - Download a song.
+4. .video <video_url> - Download a video.
+5. .facebook <url> - Download a Facebook video.
+6. .tiktok <url> - Download a TikTok video.
+7. .instagram <url> - Download an Instagram video.
+8. .ytdl <YouTube_url> - Download a YouTube video.
+9. .spotify <song_name> - Search and download a Spotify song.
+10. .apk <apk_name> - Download an APK.
+11. .sticker - Convert an image to a sticker.
+12. .movie <movie_name> - Download a movie.
+13. .runtime - Get the bot's runtime.
+14. .uptime - Get the bot's uptime.
             `;
             await sock.sendMessage(sender, { text: menuMessage });
-        } else if (text === '!runtime') {
-            const uptime = process.uptime();
-            await sock.sendMessage(sender, { text: `Bot has been running for ${Math.floor(uptime / 60)} minutes and ${Math.floor(uptime % 60)} seconds.` });
-        } else if (text.startsWith('!sticker')) {
-            await convertToSticker(sock, sender, message);
-        } else if (text.startsWith('!ytdl')) {
-            await handleYouTubeDownload(sock, sender, text);
-        } else if (text.startsWith('!fbdl')) {
-            await handleFacebookDownload(sock, sender, text);
-        } else if (text.startsWith('!tiktokdl')) {
-            await handleTikTokDownload(sock, sender, text);
-        } else if (text.startsWith('!instadl')) {
-            await handleInstagramDownload(sock, sender, text);
-        } else if (text.startsWith('!song')) {
-            await searchSong(sock, sender, text);
-        } else if (text.startsWith('!video')) {
-            await searchVideo(sock, sender, text);
-        } else if (text.startsWith('!apk')) {
-            await handleApkDownload(sock, sender, text);
-        } else if (text.startsWith('!movie')) {
-            await searchMovie(sock, sender, text);
-        } else if (text.startsWith('!spotify')) {
-            await searchSpotify(sock, sender, text);
+        } else if (text.startsWith('.song')) {
+            const songName = text.split(' ').slice(1).join(' ');
+            if (!songName) {
+                await sock.sendMessage(sender, { text: '❌ Please provide the song name.' });
+                return;
+            }
+            await downloadSong(songName, sock, sender);
+        } else if (text.startsWith('.video')) {
+            const videoUrl = text.split(' ').slice(1).join(' ');
+            if (!videoUrl) {
+                await sock.sendMessage(sender, { text: '❌ Please provide a video URL.' });
+                return;
+            }
+            await downloadVideo(videoUrl, sock, sender);
+        } else if (text.startsWith('.facebook')) {
+            const url = text.split(' ').slice(1).join(' ');
+            await downloadFacebookVideo(url, sock, sender);
+        } else if (text.startsWith('.tiktok')) {
+            const url = text.split(' ').slice(1).join(' ');
+            await downloadTikTokVideo(url, sock, sender);
+        } else if (text.startsWith('.instagram')) {
+            const url = text.split(' ').slice(1).join(' ');
+            await downloadInstagramVideo(url, sock, sender);
+        } else if (text.startsWith('.ytdl')) {
+            const url = text.split(' ').slice(1).join(' ');
+            await downloadYouTubeVideo(url, sock, sender);
+        } else if (text.startsWith('.spotify')) {
+            const songName = text.split(' ').slice(1).join(' ');
+            await downloadSpotifySong(songName, sock, sender);
+        } else if (text.startsWith('.apk')) {
+            const apkName = text.split(' ').slice(1).join(' ');
+            await downloadAPK(apkName, sock, sender);
+        } else if (text.startsWith('.sticker')) {
+            if (message.message.imageMessage) {
+                await convertToSticker(sock, sender, message);
+            } else {
+                await sock.sendMessage(sender, { text: '❌ Please send an image with the caption "!sticker".' });
+            }
+        } else if (text.startsWith('.movie')) {
+            const movieName = text.split(' ').slice(1).join(' ');
+            await downloadMovie(movieName, sock, sender);
+        } else if (text.startsWith('.runtime')) {
+            const runtime = Math.floor((Date.now() - startTime) / 1000);
+            await sock.sendMessage(sender, { text: `🤖 Bot runtime: ${runtime} seconds.` });
+        } else if (text.startsWith('.uptime')) {
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = uptime % 60;
+            await sock.sendMessage(sender, { text: `🤖 Bot uptime: ${hours}h ${minutes}m ${seconds}s` });
         }
     });
 
@@ -84,138 +125,97 @@ async function startBot() {
             const reason = lastDisconnect?.error?.output?.statusCode || 'Unknown';
             console.log(`Connection closed. Reason: ${reason}`);
             if (reason !== DisconnectReason.loggedOut) {
-                startBot(); // Reconnect
+                startBot(); // Reconnect automatically if not logged out
             }
         } else if (connection === 'open') {
-            console.log('Bot is online and ready!');
+            console.log('Bot is online!');
         }
     });
+}
+
+// Function to download a song
+async function downloadSong(songName, sock, sender) {
+    // Replace with actual song download logic
+    const songPath = './downloads/song.mp3';
+    exec(`youtube-dl -x --audio-format mp3 "${songName}" -o ${songPath}`, async (error, stdout, stderr) => {
+        if (error) {
+            await sock.sendMessage(sender, { text: `❌ Error downloading song: ${stderr || error.message}` });
+            return;
+        }
+        await sock.sendMessage(sender, {
+            audio: { url: songPath },
+            caption: `🎶 Here is your song: ${songName}`,
+        });
+        fs.unlinkSync(songPath);
+    });
+}
+
+// Function to download a video
+async function downloadVideo(url, sock, sender) {
+    const videoPath = './downloads/video.mp4';
+    exec(`yt-dlp -f bestvideo+bestaudio -o "${videoPath}" "${url}"`, async (error, stdout, stderr) => {
+        if (error) {
+            await sock.sendMessage(sender, { text: `❌ Error downloading video: ${stderr || error.message}` });
+            return;
+        }
+        await sock.sendMessage(sender, {
+            video: { url: videoPath },
+            caption: '🎥 Here is your video!',
+        });
+        fs.unlinkSync(videoPath);
+    });
+}
+
+// Placeholder function for Facebook video download
+async function downloadFacebookVideo(url, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 Facebook video download feature is under construction.' });
+}
+
+// Placeholder function for TikTok video download
+async function downloadTikTokVideo(url, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 TikTok video download feature is under construction.' });
+}
+
+// Placeholder function for Instagram video download
+async function downloadInstagramVideo(url, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 Instagram video download feature is under construction.' });
+}
+
+// Placeholder function for YouTube video download
+async function downloadYouTubeVideo(url, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 YouTube video download feature is under construction.' });
+}
+
+// Placeholder function for Spotify song download
+async function downloadSpotifySong(songName, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 Spotify song download feature is under construction.' });
+}
+
+// Placeholder function for APK download
+async function downloadAPK(apkName, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 APK download feature is under construction.' });
 }
 
 // Convert image to sticker
 async function convertToSticker(sock, sender, message) {
     const media = await sock.downloadMediaMessage(message);
     const stickerPath = './sticker.webp';
-    const inputImagePath = './input_image.jpg';
-
-    fs.writeFileSync(inputImagePath, media);
-    exec(`ffmpeg -i ${inputImagePath} -vf "scale=512:512:force_original_aspect_ratio=decrease" ${stickerPath}`, async (error) => {
+    fs.writeFileSync(stickerPath, media);
+    exec(`ffmpeg -i ${stickerPath} ${stickerPath}`, async (error) => {
         if (error) {
-            await sock.sendMessage(sender, { text: '❌ Failed to create sticker. Ensure ffmpeg is installed.' });
+            await sock.sendMessage(sender, { text: '❌ Failed to create sticker.' });
             return;
         }
-        await sock.sendMessage(sender, { sticker: { url: stickerPath } });
-        fs.unlinkSync(inputImagePath); // Cleanup
-        fs.unlinkSync(stickerPath);
+        await sock.sendMessage(sender, {
+            sticker: { url: stickerPath },
+        });
+        fs.unlinkSync(stickerPath); // Clean up
     });
 }
 
-// YouTube download handler (Placeholder)
-async function handleYouTubeDownload(sock, sender, text) {
-    const url = text.split(' ')[1];
-    if (!url) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a valid YouTube URL.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `⏳ Downloading YouTube video: ${url}...` });
-    // Actual download logic should be here using yt-dlp or a similar tool
-}
-
-// Facebook download handler (Placeholder)
-async function handleFacebookDownload(sock, sender, text) {
-    const url = text.split(' ')[1];
-    if (!url) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a valid Facebook video URL.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `⏳ Downloading Facebook video: ${url}...` });
-    // Actual download logic should be here
-}
-
-// TikTok download handler (Placeholder)
-async function handleTikTokDownload(sock, sender, text) {
-    const url = text.split(' ')[1];
-    if (!url) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a valid TikTok URL.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `⏳ Downloading TikTok video: ${url}...` });
-    // Actual download logic should be here
-}
-
-// Instagram download handler (Placeholder)
-async function handleInstagramDownload(sock, sender, text) {
-    const url = text.split(' ')[1];
-    if (!url) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a valid Instagram URL.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `⏳ Downloading Instagram video: ${url}...` });
-    // Actual download logic should be here
-}
-
-// Song search handler (Placeholder)
-async function searchSong(sock, sender, text) {
-    const song = text.split(' ').slice(1).join(' ');
-    if (!song) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a song name to search.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `🔍 Searching for song: ${song}...` });
-    // Implement song search logic using APIs or external libraries
-}
-
-// Video search handler (Placeholder)
-async function searchVideo(sock, sender, text) {
-    const video = text.split(' ').slice(1).join(' ');
-    if (!video) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a video name to search.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `🔍 Searching for video: ${video}...` });
-    // Implement video search logic using APIs or external libraries
-}
-
-// APK download handler (Placeholder)
-async function handleApkDownload(sock, sender, text) {
-    const apkName = text.split(' ')[1];
-    if (!apkName) {
-        await sock.sendMessage(sender, { text: '❌ Please provide the APK name.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `📥 Downloading APK: ${apkName}...` });
-    // Implement APK download logic
-}
-
-// Movie search handler (Placeholder)
-async function searchMovie(sock, sender, text) {
-    const movie = text.split(' ').slice(1).join(' ');
-    if (!movie) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a movie name to search.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `🔍 Searching for movie: ${movie}...` });
-    // Implement movie search logic
-}
-
-// Spotify search handler (Placeholder)
-async function searchSpotify(sock, sender, text) {
-    const song = text.split(' ').slice(1).join(' ');
-    if (!song) {
-        await sock.sendMessage(sender, { text: '❌ Please provide a song name to search on Spotify.' });
-        return;
-    }
-
-    await sock.sendMessage(sender, { text: `🔍 Searching Spotify for song: ${song}...` });
-    // Implement Spotify search logic
+// Placeholder function for movie download
+async function downloadMovie(movieName, sock, sender) {
+    await sock.sendMessage(sender, { text: '🚧 Movie download feature is under construction.' });
 }
 
 // Start the bot
