@@ -55,22 +55,31 @@ async function startBot() {
         // Command handling
         if (text.startsWith('.ping')) {
             const latency = Date.now() - startTime;
-            await sock.sendMessage(sender, { text: `🌟Latency : ${latency}ms.` });
+            await sock.sendMessage(sender, { text: `🔥Latency : ${latency}ms` });
         } else if (text.startsWith('.menu')) {
             const menuMessage = `
 📜 *Movie Bot Commands:*
 
 🎥 .topmovies - Get the top trending movies.
 🎬 .upcoming - Get upcoming movies.
-🎬 .nowplaying - Get currently playing movies in theaters.
+📺 .nowplaying - Get currently playing movies in theaters.
 🔍 .search <movie_name> - Search for a movie.
 📂 .getmovie <movie_id> - Download a movie by ID.
 📖 .moviedetails <movie_id> - Get detailed information about a movie.
 📂 .getsimilar <movie_id> - Get similar movies.
 📜 .help - View this help menu.
 🏓 .ping - Check bot speed.
+⚡ .alive - Check bot uptime.
             `;
-            await sock.sendMessage(sender, { text: menuMessage });
+            const thumbnailBuffer = await getThumbnailImage();  // Get thumbnail image
+            await sock.sendMessage(sender, {
+                text: menuMessage,
+                mentions: [sender], // Mentions the sender
+                thumbnail: thumbnailBuffer,  // Attach the thumbnail image
+            });
+        } else if (text.startsWith('.alive')) {
+            const uptime = formatUptime(Date.now() - startTime);
+            await sock.sendMessage(sender, { text: `🤖 The bot has been alive for: ${uptime}` });
         } else if (text.startsWith('.help')) {
             await sock.sendMessage(sender, { text: 'ℹ️ Use .menu to see all commands!' });
         } else if (text.startsWith('.topmovies')) {
@@ -186,11 +195,12 @@ async function getMovieFile(movieId, sock, sender) {
             params: { api_key: TMDB_API_KEY },
         });
         const movie = response.data;
-        const fileUrl = `https://example.com/download/${movieId}.mp4`; // Replace with actual movie file source
-        const message = `📂 *Download Movie:*\n\n🎬 *${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 [Download Movie](${fileUrl})`;
-        await sock.sendMessage(sender, { text: message });
+        const fileUrl = `https://example.com/download/${movieId}.mp4`; // Replace with actual movie file URL
+        await sock.sendMessage(sender, {
+            text: `📂 Download the movie *${movie.title}* here: ${fileUrl}`,
+        });
     } catch (error) {
-        await sock.sendMessage(sender, { text: '❌ Error fetching movie details or file.' });
+        await sock.sendMessage(sender, { text: '❌ Error fetching movie file.' });
     }
 }
 
@@ -231,5 +241,20 @@ async function getSimilarMovies(movieId, sock, sender) {
     }
 }
 
-// Start the bot
+// Format uptime into human-readable form
+function formatUptime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    return `${days} 📆Days, ${hours % 24} ⏲️Hours, ${minutes % 60} ⏰Minutes, ${seconds % 60} ⏱️Seconds`;
+}
+
+// Get thumbnail image for menu
+async function getThumbnailImage() {
+    const thumbnailPath = path.join(__dirname, 'thumbnail.jpg'); // Path to your thumbnail image
+    return fs.promises.readFile(thumbnailPath); // Return thumbnail image buffer
+}
+
 startBot();
