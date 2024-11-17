@@ -1,22 +1,44 @@
-const { default: makeWASocket, DisconnectReason, useSingleFileAuthState } = require('@adiwajshing/baileys');
-const { exec } = require('child_process');
+const { default: makeWASocket, useSingleFileAuthState, DisconnectReason } = require('@adiwajshing/baileys');
+const qrcode = require('qrcode-terminal');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// Save authentication state to a file
+// TMDb API Configuration
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const TMDB_API_KEY = 'your_tmdb_api_key_here'; // Replace with your TMDb API Key
+
+// Authentication state
 const { state, saveState } = useSingleFileAuthState('./auth_info.json');
 
-// Get the current time and uptime of the bot
+// Bot start time
 const startTime = Date.now();
 
 async function startBot() {
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
+        printQRInTerminal: true, // Display QR code in terminal
     });
 
-    // Save authentication state whenever it changes
+    // Save authentication state
     sock.ev.on('creds.update', saveState);
+
+    // Display QR code
+    sock.ev.on('connection.update', (update) => {
+        const { connection, qr } = update;
+
+        if (qr) {
+            console.log('📲 Scan the QR Code below to connect:');
+            qrcode.generate(qr, { small: true }); // Display QR code in terminal
+        }
+
+        if (connection === 'open') {
+            console.log('✅ Bot is connected!');
+        } else if (connection === 'close') {
+            console.log('🔌 Connection closed. Reconnecting...');
+            startBot(); // Reconnect automatically
+        }
+    });
 
     // Handle incoming messages
     sock.ev.on('messages.upsert', async (msg) => {
@@ -28,207 +50,185 @@ async function startBot() {
 
         if (!text) return;
 
-        console.log(`Received message: ${text} from ${sender}`);
+        console.log(`📩 Message received: ${text} from ${sender}`);
 
         // Command handling
         if (text.startsWith('.ping')) {
-            await sock.sendMessage(sender, { text: 'Pong! 🏓' });
-        } else if (text.startsWith('.alive')) {
-            await sock.sendMessage(sender, { text: '✅ Hey,The bot is alive and running! 🫡' });
+            const latency = Date.now() - startTime;
+            await sock.sendMessage(sender, { text: `🌟Latency : ${latency}ms.` });
         } else if (text.startsWith('.menu')) {
             const menuMessage = `
-╭──────────────────━┈⊷
-│◦ 🤖ʙᴏᴛ ɴᴀᴍᴇ : *DOWNLOADER-MD*
-│◦ 👤ᴏᴡɴᴇʀ ɴᴀᴍᴇ : *Cyber DissA*
-│◦ ☎ᴏᴡɴᴇʀ ɴᴜᴍ : *+94775704025*
-│◦ ⏰ᴜᴘᴛɪᴍᴇ : *0ᴅᴀʏ 0ʜʀs 3ᴍɪɴs*
-│◦ 💾ʀᴀᴍ : *857.19 MB / 3.7 GB*
-│◦ 🛡ᴘʟᴀᴛғᴏʀᴍ : *Unkown*
-│◦ 💫ᴘʀᴇғɪx : *[.]*
-╰──────────────────━┈⊷
+📜 *Movie Bot Commands:*
 
-➤❮ *`ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs`* ❯
-
-1. .ᴘɪɴɢ - _Check if the bot is online._
-
-2. .ᴀʟɪᴠᴇ - _Check if the bot is alive._
-
-3. .sᴏɴɢ <song name or url> - _Download a song._
-
-4. .ᴠɪᴅᴇᴏ <video url> - _Download a video._
-
-5. .ғᴀᴄᴇʙᴏᴏᴋ <url> - _Download a Facebook video._
-
-6. .ᴛɪᴋᴛᴏᴋ <url> - _Download a TikTok video._
-
-7. .ɪɴsᴛᴀɢʀᴀᴍ <url> - _Download an Instagram video._
-
-8. .ʏᴛᴅʟ <YouTube url> - _Download a YouTube video._
-
-9. .sᴘᴏᴛɪғʏ <song name> - _Search and download a Spotify song._
-
-10. .ᴀᴘᴋ <apk name> - _Download an APK._
-
-11. .sᴛɪᴄᴋᴇʀ - _Convert an image to a sticker._
-
-12. .ᴍᴏᴠɪᴇ <movie name> - _Download a movie._
-
-13. .ʀᴜɴᴛɪᴍᴇ - _Get the bot's runtime._
-
-14. .ᴜᴘᴛɪᴍᴇ - _Get the bot's uptime._
+🎥 .topmovies - Get the top trending movies.
+🎬 .upcoming - Get upcoming movies.
+🎬 .nowplaying - Get currently playing movies in theaters.
+🔍 .search <movie_name> - Search for a movie.
+📂 .getmovie <movie_id> - Download a movie by ID.
+📖 .moviedetails <movie_id> - Get detailed information about a movie.
+📂 .getsimilar <movie_id> - Get similar movies.
+📜 .help - View this help menu.
+🏓 .ping - Check bot speed.
             `;
             await sock.sendMessage(sender, { text: menuMessage });
-        } else if (text.startsWith('.song')) {
-            const songName = text.split(' ').slice(1).join(' ');
-            if (!songName) {
-                await sock.sendMessage(sender, { text: '❌ Please provide the song name.' });
+        } else if (text.startsWith('.help')) {
+            await sock.sendMessage(sender, { text: 'ℹ️ Use .menu to see all commands!' });
+        } else if (text.startsWith('.topmovies')) {
+            await sendTopMovies(sock, sender);
+        } else if (text.startsWith('.upcoming')) {
+            await sendUpcomingMovies(sock, sender);
+        } else if (text.startsWith('.nowplaying')) {
+            await sendNowPlayingMovies(sock, sender);
+        } else if (text.startsWith('.search')) {
+            const query = text.split(' ').slice(1).join(' ');
+            if (!query) {
+                await sock.sendMessage(sender, { text: '❌ Please provide a movie name to search.' });
                 return;
             }
-            await downloadSong(songName, sock, sender);
-        } else if (text.startsWith('.video')) {
-            const videoUrl = text.split(' ').slice(1).join(' ');
-            if (!videoUrl) {
-                await sock.sendMessage(sender, { text: '❌ Please provide a video URL.' });
+            await searchMovie(query, sock, sender);
+        } else if (text.startsWith('.getmovie')) {
+            const movieId = text.split(' ')[1];
+            if (!movieId) {
+                await sock.sendMessage(sender, { text: '❌ Please provide a movie ID to download.' });
                 return;
             }
-            await downloadVideo(videoUrl, sock, sender);
-        } else if (text.startsWith('.facebook')) {
-            const url = text.split(' ').slice(1).join(' ');
-            await downloadFacebookVideo(url, sock, sender);
-        } else if (text.startsWith('.tiktok')) {
-            const url = text.split(' ').slice(1).join(' ');
-            await downloadTikTokVideo(url, sock, sender);
-        } else if (text.startsWith('.instagram')) {
-            const url = text.split(' ').slice(1).join(' ');
-            await downloadInstagramVideo(url, sock, sender);
-        } else if (text.startsWith('.ytdl')) {
-            const url = text.split(' ').slice(1).join(' ');
-            await downloadYouTubeVideo(url, sock, sender);
-        } else if (text.startsWith('.spotify')) {
-            const songName = text.split(' ').slice(1).join(' ');
-            await downloadSpotifySong(songName, sock, sender);
-        } else if (text.startsWith('.apk')) {
-            const apkName = text.split(' ').slice(1).join(' ');
-            await downloadAPK(apkName, sock, sender);
-        } else if (text.startsWith('.sticker')) {
-            if (message.message.imageMessage) {
-                await convertToSticker(sock, sender, message);
-            } else {
-                await sock.sendMessage(sender, { text: '❌ Please send an image with the caption "!sticker".' });
+            await getMovieFile(movieId, sock, sender);
+        } else if (text.startsWith('.moviedetails')) {
+            const movieId = text.split(' ')[1];
+            if (!movieId) {
+                await sock.sendMessage(sender, { text: '❌ Please provide a movie ID to get details.' });
+                return;
             }
-        } else if (text.startsWith('.movie')) {
-            const movieName = text.split(' ').slice(1).join(' ');
-            await downloadMovie(movieName, sock, sender);
-        } else if (text.startsWith('.runtime')) {
-            const runtime = Math.floor((Date.now() - startTime) / 1000);
-            await sock.sendMessage(sender, { text: `🤖 Bot runtime: ${runtime} seconds.` });
-        } else if (text.startsWith('.uptime')) {
-            const uptime = Math.floor((Date.now() - startTime) / 1000);
-            const hours = Math.floor(uptime / 3600);
-            const minutes = Math.floor((uptime % 3600) / 60);
-            const seconds = uptime % 60;
-            await sock.sendMessage(sender, { text: `🤖 Bot uptime: ${hours}h ${minutes}m ${seconds}s` });
-        }
-    });
-
-    // Connection updates
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'close') {
-            const reason = lastDisconnect?.error?.output?.statusCode || 'Unknown';
-            console.log(`Connection closed. Reason: ${reason}`);
-            if (reason !== DisconnectReason.loggedOut) {
-                startBot(); // Reconnect automatically if not logged out
+            await getMovieDetails(movieId, sock, sender);
+        } else if (text.startsWith('.getsimilar')) {
+            const movieId = text.split(' ')[1];
+            if (!movieId) {
+                await sock.sendMessage(sender, { text: '❌ Please provide a movie ID to get similar movies.' });
+                return;
             }
-        } else if (connection === 'open') {
-            console.log('Hey,Bot is online!');
+            await getSimilarMovies(movieId, sock, sender);
         }
     });
 }
 
-// Function to download a song
-async function downloadSong(songName, sock, sender) {
-    // Replace with actual song download logic
-    const songPath = './downloads/song.mp3';
-    exec(`youtube-dl -x --audio-format mp3 "${songName}" -o ${songPath}`, async (error, stdout, stderr) => {
-        if (error) {
-            await sock.sendMessage(sender, { text: `❌ Error downloading song: ${stderr || error.message}` });
-            return;
-        }
-        await sock.sendMessage(sender, {
-            audio: { url: songPath },
-            caption: `🎶 Here is your song: ${songName}`,
+// Fetch top trending movies
+async function sendTopMovies(sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/trending/movie/week`, {
+            params: { api_key: TMDB_API_KEY },
         });
-        fs.unlinkSync(songPath);
-    });
-}
-
-// Function to download a video
-async function downloadVideo(url, sock, sender) {
-    const videoPath = './downloads/video.mp4';
-    exec(`yt-dlp -f bestvideo+bestaudio -o "${videoPath}" "${url}"`, async (error, stdout, stderr) => {
-        if (error) {
-            await sock.sendMessage(sender, { text: `❌ Error downloading video: ${stderr || error.message}` });
-            return;
-        }
-        await sock.sendMessage(sender, {
-            video: { url: videoPath },
-            caption: '🎥 Here is your video!',
+        const movies = response.data.results.slice(0, 10); // Top 10 movies
+        let message = '🎥 *Top Trending Movies:*\n\n';
+        movies.forEach((movie, index) => {
+            message += `🎬 *${index + 1}. ${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 ID: ${movie.id}\n\n`;
         });
-        fs.unlinkSync(videoPath);
-    });
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error fetching top movies.' });
+    }
 }
 
-// Placeholder function for Facebook video download
-async function downloadFacebookVideo(url, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 Facebook video download feature is under construction.' });
-}
-
-// Placeholder function for TikTok video download
-async function downloadTikTokVideo(url, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 TikTok video download feature is under construction.' });
-}
-
-// Placeholder function for Instagram video download
-async function downloadInstagramVideo(url, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 Instagram video download feature is under construction.' });
-}
-
-// Placeholder function for YouTube video download
-async function downloadYouTubeVideo(url, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 YouTube video download feature is under construction.' });
-}
-
-// Placeholder function for Spotify song download
-async function downloadSpotifySong(songName, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 Spotify song download feature is under construction.' });
-}
-
-// Placeholder function for APK download
-async function downloadAPK(apkName, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 APK download feature is under construction.' });
-}
-
-// Convert image to sticker
-async function convertToSticker(sock, sender, message) {
-    const media = await sock.downloadMediaMessage(message);
-    const stickerPath = './sticker.webp';
-    fs.writeFileSync(stickerPath, media);
-    exec(`ffmpeg -i ${stickerPath} ${stickerPath}`, async (error) => {
-        if (error) {
-            await sock.sendMessage(sender, { text: '❌ Failed to create sticker.' });
-            return;
-        }
-        await sock.sendMessage(sender, {
-            sticker: { url: stickerPath },
+// Fetch upcoming movies
+async function sendUpcomingMovies(sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/movie/upcoming`, {
+            params: { api_key: TMDB_API_KEY },
         });
-        fs.unlinkSync(stickerPath); // Clean up
-    });
+        const movies = response.data.results.slice(0, 10); // Top 10 upcoming movies
+        let message = '🎬 *Upcoming Movies:*\n\n';
+        movies.forEach((movie, index) => {
+            message += `🎥 *${index + 1}. ${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 ID: ${movie.id}\n\n`;
+        });
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error fetching upcoming movies.' });
+    }
 }
 
-// Placeholder function for movie download
-async function downloadMovie(movieName, sock, sender) {
-    await sock.sendMessage(sender, { text: '🚧 Movie download feature is under construction.' });
+// Fetch movies currently playing
+async function sendNowPlayingMovies(sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/movie/now_playing`, {
+            params: { api_key: TMDB_API_KEY },
+        });
+        const movies = response.data.results.slice(0, 10); // Top 10 now playing movies
+        let message = '🎬 *Now Playing Movies:*\n\n';
+        movies.forEach((movie, index) => {
+            message += `🎥 *${index + 1}. ${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 ID: ${movie.id}\n\n`;
+        });
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error fetching now playing movies.' });
+    }
+}
+
+// Search for a movie
+async function searchMovie(query, sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/search/movie`, {
+            params: { api_key: TMDB_API_KEY, query },
+        });
+        const movies = response.data.results.slice(0, 5); // Top 5 search results
+        let message = `🔍 *Search Results for "${query}":*\n\n`;
+        movies.forEach((movie, index) => {
+            message += `🎬 *${index + 1}. ${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 ID: ${movie.id}\n\n`;
+        });
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error searching for movie.' });
+    }
+}
+
+// Provide a downloadable movie file
+async function getMovieFile(movieId, sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/movie/${movieId}`, {
+            params: { api_key: TMDB_API_KEY },
+        });
+        const movie = response.data;
+        const fileUrl = `https://example.com/download/${movieId}.mp4`; // Replace with actual movie file source
+        const message = `📂 *Download Movie:*\n\n🎬 *${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 [Download Movie](${fileUrl})`;
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error fetching movie details or file.' });
+    }
+}
+
+// Get detailed movie information
+async function getMovieDetails(movieId, sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/movie/${movieId}`, {
+            params: { api_key: TMDB_API_KEY },
+        });
+        const movie = response.data;
+        let message = `🎥 *Movie Details:*\n\n`;
+        message += `🎬 *Title:* ${movie.title}\n`;
+        message += `📆 *Release Date:* ${movie.release_date}\n`;
+        message += `⭐ *Rating:* ${movie.vote_average}/10\n`;
+        message += `📝 *Overview:* ${movie.overview}\n`;
+        message += `🎞️ *Genres:* ${movie.genres.map(g => g.name).join(', ')}\n`;
+        message += `📸 *Poster:* ${TMDB_BASE_URL}/t/p/w500${movie.poster_path}\n`;
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error fetching movie details.' });
+    }
+}
+
+// Get similar movies
+async function getSimilarMovies(movieId, sock, sender) {
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/movie/${movieId}/similar`, {
+            params: { api_key: TMDB_API_KEY },
+        });
+        const movies = response.data.results.slice(0, 5); // Top 5 similar movies
+        let message = `🎬 *Similar Movies to ${movieId}:*\n\n`;
+        movies.forEach((movie, index) => {
+            message += `🎥 *${index + 1}. ${movie.title}*\n📆 Release Date: ${movie.release_date}\n⭐ Rating: ${movie.vote_average}/10\n🔗 ID: ${movie.id}\n\n`;
+        });
+        await sock.sendMessage(sender, { text: message });
+    } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Error fetching similar movies.' });
+    }
 }
 
 // Start the bot
