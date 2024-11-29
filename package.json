@@ -14,7 +14,7 @@
     "whatsapp-automation"
   ],
   "author": "Disindu",
-  "license": "MIT",
+  "license": "Apache",
   "dependencies": {
     "@adiwajshing/baileys": "^4.4.0",
     "axios": "^1.4.0",
