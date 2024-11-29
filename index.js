@@ -7,7 +7,8 @@ const path = require('path');
 
 // TMDb API Configuration
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const TMDB_API_KEY = 'your_tmdb_api_key_here'; // Replace with your TMDb API Key
+const TMDB_API_KEY = '9344af909cf2419cd5e59754f46c9ecb'; //TMDb API Key
+const API_READ_ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5MzQ0YWY5MDljZjI0MTljZDVlNTk3NTRmNDZjOWVjYiIsIm5iZiI6MTczMjg5MDkyOS4yMzQwNzM5LCJzdWIiOiI2NzNhMGM5YjljMTZkYWZhMDZmOWQ1NzQiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.8v1OnxaPrs-UVQTBsazc5DKAyDGbY_dQFV7WmTJdE0A' //API Read Access Token
 
 // Authentication state
 const { state, saveState } = useSingleFileAuthState('./auth_info.json');
