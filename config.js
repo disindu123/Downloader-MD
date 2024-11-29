@@ -1,6 +1,6 @@
 module.exports = {
     PREFIX: '.', // Command prefix
-    TMDB_API_KEY: 'your_tmdb_api_key_here', // Replace with your TMDb API key
+    TMDB_API_KEY: '9344af909cf2419cd5e59754f46c9ecb', // Replace with your TMDb API key
     TMDB_BASE_URL: 'https://api.themoviedb.org/3', // Base URL for TMDb API
     THUMBNAIL_PATH: './thumbnail.jpg', // Path to the thumbnail image for the menu
     BOT_NAME: 'Downloader-MD', // Bot name
