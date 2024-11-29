@@ -1,4 +1,5 @@
 const { default: makeWASocket, useSingleFileAuthState, DisconnectReason } = require('@adiwajshing/baileys');
+const config = require('./config'); // Import configuration file
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 const fs = require('fs');
@@ -55,7 +56,7 @@ async function startBot() {
         // Command handling
         if (text.startsWith('.ping')) {
             const latency = Date.now() - startTime;
-            await sock.sendMessage(sender, { text: `🔥Latency : ${latency}ms` });
+            await sock.sendMessage(sender, { text: `> 🔥Latency : *${latency}ms*` });
         } else if (text.startsWith('.menu')) {
             const menuMessage = `
 📜 *Movie Bot Commands:*
