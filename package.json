@@ -4,9 +4,9 @@
   "description": "A WhatsApp bot for movie recommendations, details, and file downloads using TMDb API.",
   "main": "index.js",
   "scripts": {
-    "start": "pm2 start index.js",
-    "stop": "pm2 stop Downloader-MD",
-    "restart": "pm2 restart Downloader-MD"
+    "start": "node index.js",
+    "stop": "stop index.js",
+    "restart": "restart index.js"
   },
   "keywords": [
     "downloader-md",
@@ -23,7 +23,6 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "axios": "^1.4.0",
     "qrcode-terminal": "^0.12.0",
-    "pm2": "^5.4.0"
     "path": "^0.12.7"
     "yt-search": "^2.11.0"
   },
