@@ -1,14 +1,10 @@
-const { default: makeWASocket, useSingleFileAuthState, DisconnectReason } = require('@adiwajshing/baileys');
-const config = require('./config'); // Import configuration file
-const qrcode = require('qrcode-terminal');
+const makeWASocket = require('@adiwajshing/baileys').default;
+const { useSingleFileAuthState } = require('@adiwajshing/baileys');
 const axios = require('axios');
 const fs = require('fs');
+const qrcode = require('qrcode-terminal'); // For generating QR codes
 const path = require('path');
-
-// TMDb API Configuration
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const TMDB_API_KEY = '9344af909cf2419cd5e59754f46c9ecb'; //TMDb API Key
-const API_READ_ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5MzQ0YWY5MDljZjI0MTljZDVlNTk3NTRmNDZjOWVjYiIsIm5iZiI6MTczMjg5MDkyOS4yMzQwNzM5LCJzdWIiOiI2NzNhMGM5YjljMTZkYWZhMDZmOWQ1NzQiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.8v1OnxaPrs-UVQTBsazc5DKAyDGbY_dQFV7WmTJdE0A' //API Read Access Token
+const config = require('./config'); // Load configuration
 
 // Authentication state
 const { state, saveState } = useSingleFileAuthState('./auth_info.json');
@@ -16,29 +12,25 @@ const { state, saveState } = useSingleFileAuthState('./auth_info.json');
 // Bot start time
 const startTime = Date.now();
 
+// Initialize the bot
 async function startBot() {
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Display QR code in terminal
+        printQRInTerminal: true, // Enable QR code display
     });
 
     // Save authentication state
     sock.ev.on('creds.update', saveState);
 
-    // Display QR code
+    // Handle QR code generation
     sock.ev.on('connection.update', (update) => {
         const { connection, qr } = update;
-
         if (qr) {
             console.log('📲 Scan the QR Code below to connect:');
             qrcode.generate(qr, { small: true }); // Display QR code in terminal
         }
-
         if (connection === 'open') {
-            console.log('✅ Bot is connected!');
-        } else if (connection === 'close') {
-            console.log('🔌 Connection closed. Reconnecting...');
-            startBot(); // Reconnect automatically
+            console.log(`${config.BOT_NAME} is now online✅!`);
         }
     });
 
