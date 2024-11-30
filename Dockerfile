@@ -1,19 +1,20 @@
-FROM node:lts-buster
+# Use an official Node.js runtime as the base image
+FROM node:18
 
-RUN apt-get update && \
-  apt-get install -y \
-  ffmpeg \
-  imagemagick \
-  webp && \
-  apt-get upgrade -y && \
-  rm -rf /var/lib/apt/lists/*
+# Set the working directory inside the container
+WORKDIR /app
 
-COPY package.json .
+# Copy package.json and package-lock.json into the container
+COPY package.json package-lock.json ./
 
-RUN npm install && npm install -g qrcode-terminal pm2
+# Install dependencies
+RUN npm install
 
+# Copy the rest of the application code
 COPY . .
 
+# Expose a port (optional, for debugging or API integration if needed)
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Define the command to run the bot
+CMD ["node", "index.js"]
